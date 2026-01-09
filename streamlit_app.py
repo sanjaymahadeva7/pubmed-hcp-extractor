@@ -38,11 +38,54 @@ countries = [
 ]
 
 # -----------------------------
-# UI
+# Page
 # -----------------------------
 st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
+# -----------------------------
+# Paper selector (LIVE SYNCED)
+# -----------------------------
+st.subheader("Number of Papers")
+
+if "paper_count" not in st.session_state:
+    st.session_state.paper_count = 1000
+
+c1, c2 = st.columns([4,1])
+
+def update_from_slider():
+    st.session_state.paper_count = st.session_state.paper_slider
+
+def update_from_input():
+    st.session_state.paper_count = st.session_state.paper_input
+
+with c1:
+    st.slider(
+        "Select",
+        10, 10000,
+        st.session_state.paper_count,
+        10,
+        key="paper_slider",
+        on_change=update_from_slider
+    )
+
+with c2:
+    st.number_input(
+        "Manual",
+        10, 10000,
+        st.session_state.paper_count,
+        10,
+        key="paper_input",
+        on_change=update_from_input
+    )
+
+max_papers = st.session_state.paper_count
+
+st.caption(f"Selected: {max_papers} papers")
+
+# -----------------------------
+# Main Form
+# -----------------------------
 with st.form("config_form"):
     search_query = st.text_area("PubMed Search Query", value="cardiologist")
 
@@ -54,31 +97,6 @@ with st.form("config_form"):
 
     selected_countries = st.multiselect("Target Countries", countries)
 
-    # ---- Number of papers (Synced Slider + Manual Input) ----
-    st.subheader("Number of Papers")
-
-    if "paper_count" not in st.session_state:
-        st.session_state.paper_count = 1000
-
-    c1, c2 = st.columns([3,1])
-    with c1:
-        st.session_state.paper_count = st.slider(
-            "Select",
-            10, 10000,
-            st.session_state.paper_count,
-            10
-        )
-    with c2:
-        st.session_state.paper_count = st.number_input(
-            "Manual",
-            min_value=10,
-            max_value=10000,
-            value=st.session_state.paper_count,
-            step=10
-        )
-
-    max_papers = st.session_state.paper_count
-
     user_email = st.text_input("Your Email (optional)")
 
     est = max_papers / 10 / 60
@@ -86,7 +104,7 @@ with st.form("config_form"):
 
     run_btn = st.form_submit_button("Run Extraction")
 
-# Email fallback
+# Email logic
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
 # -----------------------------
@@ -115,10 +133,11 @@ if run_btn:
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
 
-    process = subprocess.Popen([sys.executable, "main.py"])
-
+    st.subheader("Extraction Progress")
     bar = st.progress(0)
     status = st.empty()
+
+    process = subprocess.Popen([sys.executable, "main.py"])
 
     while process.poll() is None:
         if os.path.exists("logs/progress.json"):
