@@ -3,18 +3,18 @@ import json
 import subprocess
 import time
 import sys
+import os
 from datetime import date
 import pandas as pd
 
-# --------------------------------
-# Load base config (API key lives here)
-# --------------------------------
-
+# ---------------------------------------
+# API Key from Streamlit Cloud Secrets
+# ---------------------------------------
 API_KEY = st.secrets["NCBI_API_KEY"]
 
-# --------------------------------
-# Country list
-# --------------------------------
+# ---------------------------------------
+# Country List
+# ---------------------------------------
 countries = [
 'US','Canada','Mexico','Brazil','Argentina','Chile','Colombia','Peru','Venezuela',
 'Bolivia','Ecuador','Paraguay','Uruguay','Guyana','Suriname',
@@ -36,18 +36,14 @@ countries = [
 'Australia','New Zealand','Fiji','Papua New Guinea','Bahrain'
 ]
 
-# --------------------------------
-# Page setup
-# --------------------------------
+# ---------------------------------------
+# UI
+# ---------------------------------------
 st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
-# --------------------------------
-# UI
-# --------------------------------
 with st.form("config_form"):
     search_query = st.text_area("PubMed Search Query", value="cardiologist")
-
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input("Start Date", date(2015,1,1))
@@ -55,14 +51,11 @@ with st.form("config_form"):
         end_date = st.date_input("End Date", date(2026,12,31))
 
     selected_countries = st.multiselect("Target Countries", countries)
-
-    max_papers = st.slider("Number of papers to fetch", 10, 10000, 1000, 10)
-
+    max_papers = st.slider("Number of papers", 10, 10000, 1000, 10)
     ncbi_email = st.text_input("NCBI Email")
 
-    est_seconds = max_papers / 10
-    est_minutes = est_seconds / 60
-    st.info(f"Estimated execution time: {est_minutes:.1f} minutes")
+    est = max_papers / 10 / 60
+    st.info(f"Estimated time: {est:.1f} minutes")
 
     run_btn = st.form_submit_button("Run Extraction")
 
@@ -70,10 +63,11 @@ if run_btn and not ncbi_email:
     st.error("NCBI Email is required")
     st.stop()
 
-# --------------------------------
+# ---------------------------------------
 # Run backend
-# --------------------------------
+# ---------------------------------------
 if run_btn:
+
     config = {
         "search_query": search_query,
         "date_range": {
@@ -95,26 +89,26 @@ if run_btn:
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
 
+    # Start backend
+    process = subprocess.Popen([sys.executable, "main.py"])
+
     bar = st.progress(0)
     status = st.empty()
 
-    total = int(est_seconds)
+    # Live progress loop
+    while process.poll() is None:
+        if os.path.exists("logs/progress.json"):
+            with open("logs/progress.json") as f:
+                prog = json.load(f)
 
-    process = subprocess.Popen(
-        [sys.executable, "main.py"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+            percent = prog.get("percent", 0)
+            current = prog.get("current", 0)
+            total = prog.get("total", 0)
 
-    for i in range(total):
-        bar.progress((i + 1) / total)
-        status.write(f"Processing {int((i+1)/total*100)}%")
+            bar.progress(percent / 100)
+            status.write(f"Processed {current} / {total} papers ({percent}%)")
+
         time.sleep(1)
-        if process.poll() is not None:
-            break
-
-    process.wait()
 
     if process.returncode == 0:
         st.success("Extraction completed")
@@ -126,4 +120,3 @@ if run_btn:
             st.download_button("Download Excel", f, "pubmed_contacts.xlsx")
     else:
         st.error("Extraction failed")
-        st.code(process.stderr.read())
