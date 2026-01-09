@@ -6,6 +6,7 @@ import sys
 import os
 from datetime import date
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # -----------------------------
 # Secrets
@@ -44,44 +45,27 @@ st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 # -----------------------------
-# Paper count state
+# Number of Papers
 # -----------------------------
+st.subheader("Number of Papers")
+
+preset_cols = st.columns(4)
+preset_values = [100, 500, 1000, 5000]
+
 if "paper_count" not in st.session_state:
     st.session_state.paper_count = 1000
 
-def set_from_slider():
-    st.session_state.paper_count = st.session_state.slider_val
-    st.rerun()
+for i, val in enumerate(preset_values):
+    if preset_cols[i].button(str(val)):
+        st.session_state.paper_count = val
 
-def set_from_input():
-    st.session_state.paper_count = st.session_state.input_val
-    st.rerun()
-
-# -----------------------------
-# Paper selector
-# -----------------------------
-st.subheader("Number of Papers")
-c1, c2 = st.columns([4,1])
-
-with c1:
-    st.slider(
-        "Select",
-        10, 10000,
-        st.session_state.paper_count,
-        10,
-        key="slider_val",
-        on_change=set_from_slider
-    )
-
-with c2:
-    st.number_input(
-        "Manual",
-        10, 10000,
-        st.session_state.paper_count,
-        10,
-        key="input_val",
-        on_change=set_from_input
-    )
+st.session_state.paper_count = st.number_input(
+    "Enter manually",
+    min_value=10,
+    max_value=10000,
+    value=st.session_state.paper_count,
+    step=10
+)
 
 max_papers = st.session_state.paper_count
 st.caption(f"Selected: {max_papers} papers")
@@ -110,7 +94,7 @@ with st.form("config_form"):
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
 # -----------------------------
-# Run backend
+# Run Backend
 # -----------------------------
 if run_btn:
 
@@ -136,8 +120,8 @@ if run_btn:
         json.dump(config, f, indent=2)
 
     st.subheader("Extraction Progress")
-    progress_container = st.empty()
-    status_container = st.empty()
+    progress = st.progress(0)
+    status = st.empty()
 
     process = subprocess.Popen([sys.executable, "main.py"])
 
@@ -146,8 +130,8 @@ if run_btn:
             with open("logs/progress.json") as f:
                 p = json.load(f)
 
-            progress_container.progress(p["percent"] / 100)
-            status_container.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
+            progress.progress(p["percent"] / 100)
+            status.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
 
         time.sleep(1)
 
@@ -155,9 +139,38 @@ if run_btn:
         st.success("Extraction completed")
 
         df = pd.read_excel("data/raw/pubmed_contacts.xlsx")
+
+        # -----------------------------
+        # Summary
+        # -----------------------------
+        st.subheader("Extraction Summary")
+
+        st.metric("Total HCPs Extracted", len(df))
+
+        if "Country" in df.columns:
+            country_counts = df["Country"].value_counts().head(10)
+            st.write("Top Countries")
+            st.dataframe(country_counts.reset_index().rename(columns={"index":"Country","Country":"Count"}))
+
+        if "Specialty" in df.columns:
+            spec_counts = df["Specialty"].value_counts().head(10)
+            st.write("Top Specialties")
+            st.dataframe(spec_counts.reset_index().rename(columns={"index":"Specialty","Specialty":"Count"}))
+
+        if "Country" in df.columns:
+            st.write("Country Distribution")
+            fig, ax = plt.subplots()
+            country_counts.plot.pie(autopct="%1.0f%%", ax=ax)
+            st.pyplot(fig)
+
+        # -----------------------------
+        # Data preview + download
+        # -----------------------------
+        st.subheader("Preview")
         st.dataframe(df.head(20), use_container_width=True)
 
         with open("data/raw/pubmed_contacts.xlsx", "rb") as f:
             st.download_button("Download Excel", f, "pubmed_contacts.xlsx")
+
     else:
         st.error("Extraction failed")
