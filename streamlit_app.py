@@ -6,7 +6,6 @@ import sys
 import os
 from datetime import date
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # -----------------------------
 # Secrets
@@ -45,33 +44,7 @@ st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 # -----------------------------
-# Number of Papers
-# -----------------------------
-st.subheader("Number of Papers")
-
-preset_cols = st.columns(4)
-preset_values = [100, 500, 1000, 5000]
-
-if "paper_count" not in st.session_state:
-    st.session_state.paper_count = 1000
-
-for i, val in enumerate(preset_values):
-    if preset_cols[i].button(str(val)):
-        st.session_state.paper_count = val
-
-st.session_state.paper_count = st.number_input(
-    "Enter manually",
-    min_value=10,
-    max_value=10000,
-    value=st.session_state.paper_count,
-    step=10
-)
-
-max_papers = st.session_state.paper_count
-st.caption(f"Selected: {max_papers} papers")
-
-# -----------------------------
-# Main Form
+# Form
 # -----------------------------
 with st.form("config_form"):
     search_query = st.text_area("PubMed Search Query", value="cardiologist")
@@ -85,9 +58,6 @@ with st.form("config_form"):
     selected_countries = st.multiselect("Target Countries", countries)
 
     user_email = st.text_input("Your Email (optional)")
-
-    est = max_papers / 10 / 60
-    st.info(f"Estimated time: {est:.1f} minutes")
 
     run_btn = st.form_submit_button("Run Extraction")
 
@@ -108,7 +78,7 @@ if run_btn:
         },
         "target_countries": selected_countries,
         "start_result": 1,
-        "end_result": max_papers,
+        "end_result": 10000,
         "email_required": True,
         "output_filename": "data/raw/pubmed_contacts.xlsx",
         "log_filename": "logs/extraction_log.txt",
@@ -141,36 +111,41 @@ if run_btn:
         df = pd.read_excel("data/raw/pubmed_contacts.xlsx")
 
         # -----------------------------
-        # Summary
+        # Dataset FIRST
         # -----------------------------
-        st.subheader("Extraction Summary")
-
-        st.metric("Total HCPs Extracted", len(df))
-
-        if "Country" in df.columns:
-            country_counts = df["Country"].value_counts().head(10)
-            st.write("Top Countries")
-            st.dataframe(country_counts.reset_index().rename(columns={"index":"Country","Country":"Count"}))
-
-        if "Specialty" in df.columns:
-            spec_counts = df["Specialty"].value_counts().head(10)
-            st.write("Top Specialties")
-            st.dataframe(spec_counts.reset_index().rename(columns={"index":"Specialty","Specialty":"Count"}))
-
-        if "Country" in df.columns:
-            st.write("Country Distribution")
-            fig, ax = plt.subplots()
-            country_counts.plot.pie(autopct="%1.0f%%", ax=ax)
-            st.pyplot(fig)
-
-        # -----------------------------
-        # Data preview + download
-        # -----------------------------
-        st.subheader("Preview")
-        st.dataframe(df.head(20), use_container_width=True)
+        st.subheader("Extracted Dataset")
+        st.dataframe(df, use_container_width=True, height=400)
 
         with open("data/raw/pubmed_contacts.xlsx", "rb") as f:
             st.download_button("Download Excel", f, "pubmed_contacts.xlsx")
+
+        # -----------------------------
+        # Compact Report
+        # -----------------------------
+        st.subheader("Summary")
+
+        colA, colB = st.columns(2)
+
+        with colA:
+            if "Country" in df.columns:
+                country_counts = df["Country"].value_counts().head(8)
+                st.write("Top Countries")
+                st.dataframe(country_counts.reset_index().rename(columns={"index":"Country","Country":"Count"}), height=250)
+
+        with colB:
+            if "Specialty" in df.columns:
+                spec_counts = df["Specialty"].value_counts().head(8)
+                st.write("Top Specialties")
+                st.dataframe(spec_counts.reset_index().rename(columns={"index":"Specialty","Specialty":"Count"}), height=250)
+
+        # -----------------------------
+        # Small Chart
+        # -----------------------------
+        if "Country" in df.columns:
+            st.subheader("Country Distribution")
+            chart_df = country_counts.reset_index()
+            chart_df.columns = ["Country", "Count"]
+            st.bar_chart(chart_df.set_index("Country"), height=300)
 
     else:
         st.error("Extraction failed")
