@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import subprocess
 import sys
-import os
 from datetime import date
 import pandas as pd
 
@@ -43,7 +42,7 @@ st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 # -----------------------------
-# Paper count
+# Paper Count
 # -----------------------------
 st.subheader("Number of Papers")
 max_papers = st.number_input(
@@ -78,7 +77,7 @@ with st.form("config_form"):
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
 # -----------------------------
-# Run backend
+# Run Backend
 # -----------------------------
 if run_btn:
 
@@ -103,7 +102,6 @@ if run_btn:
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
 
-    # Spinner instead of broken progress bar
     with st.spinner("🔍 Searching PubMed… Extracting HCPs… Preparing Excel…"):
         process = subprocess.Popen([sys.executable, "main.py"])
         process.wait()
@@ -114,7 +112,7 @@ if run_btn:
         df = pd.read_excel("data/raw/pubmed_contacts.xlsx")
 
         # -----------------------------
-        # Dataset FIRST
+        # Dataset
         # -----------------------------
         st.subheader("Extracted Dataset")
         st.dataframe(df, use_container_width=True, height=400)
@@ -123,32 +121,49 @@ if run_btn:
             st.download_button("Download Excel", f, "pubmed_contacts.xlsx")
 
         # -----------------------------
-        # Compact Report
+        # Summary
         # -----------------------------
         st.subheader("Summary")
 
         colA, colB = st.columns(2)
 
-        with colA:
-            if "Country" in df.columns:
-                country_counts = df["Country"].value_counts().head(8)
-                st.write("Top Countries")
-                st.dataframe(country_counts.reset_index().rename(columns={"index":"Country","Country":"Count"}), height=250)
-
-        with colB:
-            if "Specialty" in df.columns:
-                spec_counts = df["Specialty"].value_counts().head(8)
-                st.write("Top Specialties")
-                st.dataframe(spec_counts.reset_index().rename(columns={"index":"Specialty","Specialty":"Count"}), height=250)
-
-        # -----------------------------
-        # Small Chart
-        # -----------------------------
         if "Country" in df.columns:
-            st.subheader("Country Distribution")
-            chart_df = country_counts.reset_index()
-            chart_df.columns = ["Country", "Count"]
-            st.bar_chart(chart_df.set_index("Country"), height=300)
+            country_counts = df["Country"].value_counts().head(5)
+            with colA:
+                st.write("Top 5 Countries")
+                st.dataframe(
+                    country_counts.reset_index().rename(columns={"index":"Country","Country":"Count"}),
+                    height=220
+                )
+
+        if "Specialty" in df.columns:
+            specialty_counts = df["Specialty"].value_counts().head(5)
+            with colB:
+                st.write("Top 5 Specialties")
+                st.dataframe(
+                    specialty_counts.reset_index().rename(columns={"index":"Specialty","Specialty":"Count"}),
+                    height=220
+                )
+
+        # -----------------------------
+        # Charts
+        # -----------------------------
+        st.subheader("Distribution")
+        col1, col2 = st.columns(2)
+
+        if "Country" in df.columns:
+            with col1:
+                st.write("Country")
+                chart_df = country_counts.reset_index()
+                chart_df.columns = ["Country", "Count"]
+                st.bar_chart(chart_df.set_index("Country"), height=250)
+
+        if "Specialty" in df.columns:
+            with col2:
+                st.write("Specialty")
+                chart_df2 = specialty_counts.reset_index()
+                chart_df2.columns = ["Specialty", "Count"]
+                st.bar_chart(chart_df2.set_index("Specialty"), height=250)
 
     else:
         st.error("Extraction failed")
