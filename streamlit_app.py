@@ -1,7 +1,6 @@
 import streamlit as st
 import json
 import subprocess
-import time
 import sys
 import os
 from datetime import date
@@ -44,6 +43,18 @@ st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 # -----------------------------
+# Paper count
+# -----------------------------
+st.subheader("Number of Papers")
+max_papers = st.number_input(
+    "Enter number of papers to fetch",
+    min_value=10,
+    max_value=10000,
+    value=1000,
+    step=10
+)
+
+# -----------------------------
 # Form
 # -----------------------------
 with st.form("config_form"):
@@ -59,12 +70,15 @@ with st.form("config_form"):
 
     user_email = st.text_input("Your Email (optional)")
 
+    est = max_papers / 10 / 60
+    st.info(f"Estimated time: {est:.1f} minutes")
+
     run_btn = st.form_submit_button("Run Extraction")
 
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
 # -----------------------------
-# Run Backend
+# Run backend
 # -----------------------------
 if run_btn:
 
@@ -78,7 +92,7 @@ if run_btn:
         },
         "target_countries": selected_countries,
         "start_result": 1,
-        "end_result": 10000,
+        "end_result": max_papers,
         "email_required": True,
         "output_filename": "data/raw/pubmed_contacts.xlsx",
         "log_filename": "logs/extraction_log.txt",
@@ -89,21 +103,10 @@ if run_btn:
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
 
-    st.subheader("Extraction Progress")
-    progress = st.progress(0)
-    status = st.empty()
-
-    process = subprocess.Popen([sys.executable, "main.py"])
-
-    while process.poll() is None:
-        if os.path.exists("logs/progress.json"):
-            with open("logs/progress.json") as f:
-                p = json.load(f)
-
-            progress.progress(p["percent"] / 100)
-            status.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
-
-        time.sleep(1)
+    # Spinner instead of broken progress bar
+    with st.spinner("🔍 Searching PubMed… Extracting HCPs… Preparing Excel…"):
+        process = subprocess.Popen([sys.executable, "main.py"])
+        process.wait()
 
     if process.returncode == 0:
         st.success("Extraction completed")
