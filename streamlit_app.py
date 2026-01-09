@@ -53,22 +53,33 @@ with st.form("config_form"):
         end_date = st.date_input("End Date", date(2026,12,31))
 
     selected_countries = st.multiselect("Target Countries", countries)
-
+    
     st.subheader("Number of Papers")
-    c1, c2 = st.columns(2)
+    
+    if "paper_count" not in st.session_state:
+        st.session_state.paper_count = 1000
+    
+    c1, c2 = st.columns([3,1])
+    
     with c1:
-        slider_papers = st.slider("Select using slider", 10, 10000, 1000, 10)
+        st.session_state.paper_count = st.slider(
+            "Select",
+            10, 10000,
+            st.session_state.paper_count,
+            10
+        )
+    
     with c2:
-        manual_papers = st.number_input("Enter manually", 10, 10000, slider_papers, 10)
+        st.session_state.paper_count = st.number_input(
+            "Manual",
+            min_value=10,
+            max_value=10000,
+            value=st.session_state.paper_count,
+            step=10
+        )
+    
+    max_papers = st.session_state.paper_count
 
-    max_papers = manual_papers
-
-    user_email = st.text_input("Your Email (optional)")
-
-    est = max_papers / 10 / 60
-    st.info(f"Estimated time: {est:.1f} minutes")
-
-    run_btn = st.form_submit_button("Run Extraction")
 
 # Email fallback
 email_to_use = user_email if user_email else SYSTEM_EMAIL
