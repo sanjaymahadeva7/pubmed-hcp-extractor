@@ -44,20 +44,24 @@ st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 # -----------------------------
-# Paper selector (LIVE SYNCED)
+# Paper count state
 # -----------------------------
-st.subheader("Number of Papers")
-
 if "paper_count" not in st.session_state:
     st.session_state.paper_count = 1000
 
+def set_from_slider():
+    st.session_state.paper_count = st.session_state.slider_val
+    st.rerun()
+
+def set_from_input():
+    st.session_state.paper_count = st.session_state.input_val
+    st.rerun()
+
+# -----------------------------
+# Paper selector
+# -----------------------------
+st.subheader("Number of Papers")
 c1, c2 = st.columns([4,1])
-
-def update_from_slider():
-    st.session_state.paper_count = st.session_state.paper_slider
-
-def update_from_input():
-    st.session_state.paper_count = st.session_state.paper_input
 
 with c1:
     st.slider(
@@ -65,8 +69,8 @@ with c1:
         10, 10000,
         st.session_state.paper_count,
         10,
-        key="paper_slider",
-        on_change=update_from_slider
+        key="slider_val",
+        on_change=set_from_slider
     )
 
 with c2:
@@ -75,12 +79,11 @@ with c2:
         10, 10000,
         st.session_state.paper_count,
         10,
-        key="paper_input",
-        on_change=update_from_input
+        key="input_val",
+        on_change=set_from_input
     )
 
 max_papers = st.session_state.paper_count
-
 st.caption(f"Selected: {max_papers} papers")
 
 # -----------------------------
@@ -104,11 +107,10 @@ with st.form("config_form"):
 
     run_btn = st.form_submit_button("Run Extraction")
 
-# Email logic
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
 # -----------------------------
-# Run Backend
+# Run backend
 # -----------------------------
 if run_btn:
 
@@ -134,8 +136,8 @@ if run_btn:
         json.dump(config, f, indent=2)
 
     st.subheader("Extraction Progress")
-    bar = st.progress(0)
-    status = st.empty()
+    progress_container = st.empty()
+    status_container = st.empty()
 
     process = subprocess.Popen([sys.executable, "main.py"])
 
@@ -144,8 +146,8 @@ if run_btn:
             with open("logs/progress.json") as f:
                 p = json.load(f)
 
-            bar.progress(p["percent"] / 100)
-            status.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
+            progress_container.progress(p["percent"] / 100)
+            status_container.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
 
         time.sleep(1)
 
