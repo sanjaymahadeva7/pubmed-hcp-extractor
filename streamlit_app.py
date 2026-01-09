@@ -7,14 +7,11 @@ import os
 from datetime import date
 import pandas as pd
 
-# ---------------------------------------
-# API Key from Streamlit Cloud Secrets
-# ---------------------------------------
+# Secrets
 API_KEY = st.secrets["NCBI_API_KEY"]
+SYSTEM_EMAIL = st.secrets["NCBI_EMAIL"]
 
-# ---------------------------------------
-# Country List
-# ---------------------------------------
+# Country list
 countries = [
 'US','Canada','Mexico','Brazil','Argentina','Chile','Colombia','Peru','Venezuela',
 'Bolivia','Ecuador','Paraguay','Uruguay','Guyana','Suriname',
@@ -36,9 +33,7 @@ countries = [
 'Australia','New Zealand','Fiji','Papua New Guinea','Bahrain'
 ]
 
-# ---------------------------------------
 # UI
-# ---------------------------------------
 st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
@@ -52,22 +47,19 @@ with st.form("config_form"):
 
     selected_countries = st.multiselect("Target Countries", countries)
     max_papers = st.slider("Number of papers", 10, 10000, 1000, 10)
-    ncbi_email = st.text_input("NCBI Email")
+
+    user_email = st.text_input("Your Email (optional)")
 
     est = max_papers / 10 / 60
     st.info(f"Estimated time: {est:.1f} minutes")
 
     run_btn = st.form_submit_button("Run Extraction")
 
-if run_btn and not ncbi_email:
-    st.error("NCBI Email is required")
-    st.stop()
+# Determine email to use
+email_to_use = user_email if user_email else SYSTEM_EMAIL
 
-# ---------------------------------------
 # Run backend
-# ---------------------------------------
 if run_btn:
-
     config = {
         "search_query": search_query,
         "date_range": {
@@ -82,31 +74,25 @@ if run_btn:
         "email_required": True,
         "output_filename": "data/raw/pubmed_contacts.xlsx",
         "log_filename": "logs/extraction_log.txt",
-        "ncbi_email": ncbi_email,
+        "ncbi_email": email_to_use,
         "ncbi_api_key": API_KEY
     }
 
     with open("config.json", "w") as f:
         json.dump(config, f, indent=2)
 
-    # Start backend
     process = subprocess.Popen([sys.executable, "main.py"])
 
     bar = st.progress(0)
     status = st.empty()
 
-    # Live progress loop
     while process.poll() is None:
         if os.path.exists("logs/progress.json"):
             with open("logs/progress.json") as f:
-                prog = json.load(f)
+                p = json.load(f)
 
-            percent = prog.get("percent", 0)
-            current = prog.get("current", 0)
-            total = prog.get("total", 0)
-
-            bar.progress(percent / 100)
-            status.write(f"Processed {current} / {total} papers ({percent}%)")
+            bar.progress(p["percent"] / 100)
+            status.write(f"Processed {p['current']} / {p['total']} papers ({p['percent']}%)")
 
         time.sleep(1)
 
