@@ -9,8 +9,6 @@ import pandas as pd
 # --------------------------------
 # Load base config (API key lives here)
 # --------------------------------
-with open("config.json") as f:
-    BASE_CONFIG = json.load(f)
 
 API_KEY = st.secrets["NCBI_API_KEY"]
 
