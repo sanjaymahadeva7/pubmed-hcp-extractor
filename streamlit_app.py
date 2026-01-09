@@ -53,14 +53,14 @@ with st.form("config_form"):
         end_date = st.date_input("End Date", date(2026,12,31))
 
     selected_countries = st.multiselect("Target Countries", countries)
-    
+
+    # ---- Number of papers (Synced Slider + Manual Input) ----
     st.subheader("Number of Papers")
-    
+
     if "paper_count" not in st.session_state:
         st.session_state.paper_count = 1000
-    
+
     c1, c2 = st.columns([3,1])
-    
     with c1:
         st.session_state.paper_count = st.slider(
             "Select",
@@ -68,7 +68,6 @@ with st.form("config_form"):
             st.session_state.paper_count,
             10
         )
-    
     with c2:
         st.session_state.paper_count = st.number_input(
             "Manual",
@@ -77,9 +76,15 @@ with st.form("config_form"):
             value=st.session_state.paper_count,
             step=10
         )
-    
+
     max_papers = st.session_state.paper_count
 
+    user_email = st.text_input("Your Email (optional)")
+
+    est = max_papers / 10 / 60
+    st.info(f"Estimated time: {est:.1f} minutes")
+
+    run_btn = st.form_submit_button("Run Extraction")
 
 # Email fallback
 email_to_use = user_email if user_email else SYSTEM_EMAIL
