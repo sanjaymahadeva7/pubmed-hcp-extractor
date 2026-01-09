@@ -7,11 +7,15 @@ import os
 from datetime import date
 import pandas as pd
 
+# -----------------------------
 # Secrets
+# -----------------------------
 API_KEY = st.secrets["NCBI_API_KEY"]
 SYSTEM_EMAIL = st.secrets["NCBI_EMAIL"]
 
-# Country list
+# -----------------------------
+# Country List
+# -----------------------------
 countries = [
 'US','Canada','Mexico','Brazil','Argentina','Chile','Colombia','Peru','Venezuela',
 'Bolivia','Ecuador','Paraguay','Uruguay','Guyana','Suriname',
@@ -33,12 +37,15 @@ countries = [
 'Australia','New Zealand','Fiji','Papua New Guinea','Bahrain'
 ]
 
+# -----------------------------
 # UI
+# -----------------------------
 st.set_page_config(page_title="PubMed HCP Extractor", layout="wide")
 st.title("PubMed HCP Data Extraction Platform")
 
 with st.form("config_form"):
     search_query = st.text_area("PubMed Search Query", value="cardiologist")
+
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input("Start Date", date(2015,1,1))
@@ -46,7 +53,15 @@ with st.form("config_form"):
         end_date = st.date_input("End Date", date(2026,12,31))
 
     selected_countries = st.multiselect("Target Countries", countries)
-    max_papers = st.slider("Number of papers", 10, 10000, 1000, 10)
+
+    st.subheader("Number of Papers")
+    c1, c2 = st.columns(2)
+    with c1:
+        slider_papers = st.slider("Select using slider", 10, 10000, 1000, 10)
+    with c2:
+        manual_papers = st.number_input("Enter manually", 10, 10000, slider_papers, 10)
+
+    max_papers = manual_papers
 
     user_email = st.text_input("Your Email (optional)")
 
@@ -55,11 +70,14 @@ with st.form("config_form"):
 
     run_btn = st.form_submit_button("Run Extraction")
 
-# Determine email to use
+# Email fallback
 email_to_use = user_email if user_email else SYSTEM_EMAIL
 
-# Run backend
+# -----------------------------
+# Run Backend
+# -----------------------------
 if run_btn:
+
     config = {
         "search_query": search_query,
         "date_range": {
